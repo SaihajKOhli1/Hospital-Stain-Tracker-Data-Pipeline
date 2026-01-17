@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from fastapi.responses import PlainTextResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import text, func
 from typing import List, Optional
@@ -15,40 +16,58 @@ from .settings import settings
 # Build ID for Railway verification
 BUILD_ID = "railway-proof-2026-01-17-0225"
 
-# Absolute path resolution for static files (works in containers)
-BASE_DIR = Path(__file__).resolve().parent.parent  # backend/app -> backend
-STATIC_DIR = BASE_DIR / "static"
-INDEX_FILE = STATIC_DIR / "index.html"
-
 app = FastAPI(title="Strain Tracker API")
 
 # CORS origins configuration
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "").strip()
-origins = [
+CORS_ORIGINS = [
+    "https://hospital-stain-tracker-data-pipelin.vercel.app",
     "http://localhost:3000",
     "http://localhost:5173",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "https://hospital-stain-tracker-data-pipelin.vercel.app",
 ]
-if FRONTEND_ORIGIN and FRONTEND_ORIGIN not in origins:
-    origins.append(FRONTEND_ORIGIN)
+if FRONTEND_ORIGIN and FRONTEND_ORIGIN not in CORS_ORIGINS:
+    CORS_ORIGINS.append(FRONTEND_ORIGIN)
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+class ConditionalCORSMiddleware(BaseHTTPMiddleware):
+    """Custom CORS middleware that excludes /health endpoint."""
+    
+    async def dispatch(self, request: Request, call_next):
+        # Skip CORS for /health endpoint
+        if request.url.path == "/health":
+            response = await call_next(request)
+            return response
+        
+        # Apply CORS headers for all other routes
+        origin = request.headers.get("origin")
+        if origin in CORS_ORIGINS:
+            response = await call_next(request)
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "*"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            return response
+        
+        # Handle preflight OPTIONS requests
+        if request.method == "OPTIONS":
+            response = Response()
+            if origin in CORS_ORIGINS:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+                response.headers["Access-Control-Allow-Methods"] = "*"
+                response.headers["Access-Control-Allow-Headers"] = "*"
+            return response
+        
+        response = await call_next(request)
+        return response
+
+
+# Add custom CORS middleware
+app.add_middleware(ConditionalCORSMiddleware)
 
 # Diagnostic prints for Railway troubleshooting
 print("[DIAG] cwd:", os.getcwd())
 print("[DIAG] file:", Path(__file__).resolve())
-print("[DIAG] BASE_DIR:", BASE_DIR)
-print("[DIAG] STATIC_DIR exists?", STATIC_DIR.exists(), "->", STATIC_DIR)
-print("[DIAG] INDEX_FILE exists?", INDEX_FILE.exists(), "->", INDEX_FILE)
 
 
 @app.on_event("startup")
@@ -66,12 +85,7 @@ async def startup_event():
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {
-        "status": "ok",
-        "service": "hospital-strain-tracker",
-        "docs": "/docs",
-        "build_id": BUILD_ID
-    }
+    return {"status": "ok"}
 
 
 @app.get("/__whoami")
@@ -80,9 +94,7 @@ async def whoami():
     return {
         "build_id": BUILD_ID,
         "cwd": os.getcwd(),
-        "main_file": str(Path(__file__).resolve()),
-        "static_exists": STATIC_DIR.exists(),
-        "index_exists": INDEX_FILE.exists()
+        "main_file": str(Path(__file__).resolve())
     }
 
 
@@ -96,7 +108,7 @@ async def build_id():
 async def cors_debug():
     """Debug endpoint to verify CORS origins configuration."""
     return {
-        "origins": origins,
+        "origins": CORS_ORIGINS,
         "env_frontend_origin": FRONTEND_ORIGIN
     }
 
@@ -367,14 +379,4 @@ async def get_coverage(
     }
 
 
-# TEMPORARY root route for Railway verification
-@app.get("/", include_in_schema=False)
-async def root_proof():
-    return HTMLResponse("<h1>DASHBOARD_ROUTE_HIT</h1>", status_code=200)
-
-
-# Mount static files for any assets referenced by index.html
-# Mounted at "/static" to avoid shadowing API routes at "/"
-if STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static_assets")
 
