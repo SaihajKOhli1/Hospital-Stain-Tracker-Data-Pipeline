@@ -78,19 +78,34 @@ print("[DIAG] file:", Path(__file__).resolve())
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database on startup."""
-    init_db()
+    """Initialize database on startup - non-blocking."""
+    port = os.getenv("PORT", "8000")
+    print(f"STARTED_OK PORT={port}")
+    
+    # Try to initialize DB, but don't block startup if it fails
+    try:
+        init_db()
+        print("✅ Database initialized")
+    except Exception as e:
+        print(f"⚠️  Database initialization failed (non-blocking): {e}")
+    
     # Print startup banner
     print("\n" + "="*50)
     print("🚑 Hospital Strain Tracker API running")
-    print("Base URL: http://localhost:8000")
-    print("Docs: http://localhost:8000/docs")
+    print(f"Base URL: http://localhost:{port}")
+    print(f"Docs: http://localhost:{port}/docs")
     print("="*50 + "\n")
 
 
 @app.get("/health")
 async def health():
     """Health check endpoint - simplest possible, no DB or file reads."""
+    return {"ok": True}
+
+
+@app.get("/ping")
+async def ping():
+    """Simple ping endpoint - returns immediately, no DB."""
     return {"ok": True}
 
 
