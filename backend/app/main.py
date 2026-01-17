@@ -344,6 +344,7 @@ async def get_coverage(
 @app.get("/", include_in_schema=False)
 async def dashboard():
     """Serve dashboard HTML at root path."""
+    print("SERVING_DASHBOARD_HTML", INDEX_FILE)
     return FileResponse(str(INDEX_FILE))
 
 
