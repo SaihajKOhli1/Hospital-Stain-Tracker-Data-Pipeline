@@ -10,11 +10,10 @@ from .settings import settings
 
 app = FastAPI(title="Strain Tracker API")
 
-# Add CORS middleware - origins configurable via CORS_ORIGINS env var
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.get_cors_origins(),
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
