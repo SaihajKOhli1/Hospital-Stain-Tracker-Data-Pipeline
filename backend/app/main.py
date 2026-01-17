@@ -1,8 +1,6 @@
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse, JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import text, func
 from typing import List, Optional
@@ -18,58 +16,23 @@ BUILD_ID = "railway-switch-2026-01-17-0907"
 
 app = FastAPI(title="Strain Tracker API")
 
+# CORS configuration - must be right after app creation
+allowed_origins = [
+    "https://hospital-stain-tracker-data-pipeline-1duyntawl.vercel.app"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.get("/_railway", include_in_schema=False)
 def railway_health():
     return PlainTextResponse("ok", status_code=200)
-
-
-# CORS origins configuration
-FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "").strip()
-CORS_ORIGINS = [
-    "https://hospital-stain-tracker-data-pipelin.vercel.app",
-    "http://localhost:3000",
-    "http://localhost:5173",
-]
-if FRONTEND_ORIGIN and FRONTEND_ORIGIN not in CORS_ORIGINS:
-    CORS_ORIGINS.append(FRONTEND_ORIGIN)
-
-
-class ConditionalCORSMiddleware(BaseHTTPMiddleware):
-    """Custom CORS middleware that excludes /health endpoint."""
-    
-    async def dispatch(self, request: Request, call_next):
-        # Skip CORS for /health endpoint
-        if request.url.path == "/health":
-            response = await call_next(request)
-            return response
-        
-        # Apply CORS headers for all other routes
-        origin = request.headers.get("origin")
-        if origin in CORS_ORIGINS:
-            response = await call_next(request)
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = "false"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-            response.headers["Access-Control-Allow-Headers"] = "*"
-            return response
-        
-        # Handle preflight OPTIONS requests
-        if request.method == "OPTIONS":
-            response = Response()
-            if origin in CORS_ORIGINS:
-                response.headers["Access-Control-Allow-Origin"] = origin
-                response.headers["Access-Control-Allow-Credentials"] = "false"
-                response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-                response.headers["Access-Control-Allow-Headers"] = "*"
-            return response
-        
-        response = await call_next(request)
-        return response
-
-
-# Add custom CORS middleware
-app.add_middleware(ConditionalCORSMiddleware)
 
 # Diagnostic prints for Railway troubleshooting
 print("[DIAG] cwd:", os.getcwd())
@@ -138,12 +101,12 @@ def build_stamp():
     })
 
 
-@app.get("/__cors")
-async def cors_debug():
-    """Debug endpoint to verify CORS origins configuration."""
+@app.get("/cors-check")
+async def cors_check(request: Request):
+    """Debug endpoint to verify CORS configuration."""
     return {
-        "origins": CORS_ORIGINS,
-        "env_frontend_origin": FRONTEND_ORIGIN
+        "allowed_origins": allowed_origins,
+        "origin_seen": request.headers.get("origin")
     }
 
 
