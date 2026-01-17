@@ -1,16 +1,30 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import text, func
 from typing import List, Optional
 from datetime import date as date_type, timedelta
+from pathlib import Path
 import os
 from .db import get_db, init_db
 from .models import PipelineRun, Region, HospitalCapacityDaily, MetricsDaily
 from .settings import settings
 
+# Absolute path resolution for static files (works in containers)
+BASE_DIR = Path(__file__).resolve().parent.parent  # backend/app -> backend
+STATIC_DIR = BASE_DIR / "static"
+INDEX_FILE = STATIC_DIR / "index.html"
+
 app = FastAPI(title="Strain Tracker API")
+
+# Diagnostic prints for Railway troubleshooting
+print("[DIAG] cwd:", os.getcwd())
+print("[DIAG] file:", Path(__file__).resolve())
+print("[DIAG] BASE_DIR:", BASE_DIR)
+print("[DIAG] STATIC_DIR exists?", STATIC_DIR.exists(), "->", STATIC_DIR)
+print("[DIAG] INDEX_FILE exists?", INDEX_FILE.exists(), "->", INDEX_FILE)
 
 # Add CORS middleware
 app.add_middleware(
@@ -306,8 +320,15 @@ async def get_coverage(
     }
 
 
-# Mount static files (serve dashboard) - must be last after all route definitions
-static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
-if os.path.exists(static_dir):
-    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+# Root route serves dashboard (API routes take precedence, so /health, /metrics/* still work)
+@app.get("/", include_in_schema=False)
+async def dashboard():
+    """Serve dashboard HTML at root path."""
+    return FileResponse(str(INDEX_FILE))
+
+
+# Mount static files for any assets referenced by index.html
+# Mounted at "/static" to avoid shadowing API routes at "/"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static_assets")
 
