@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card"
-import { API_BASE } from "./lib/apiBase"
+import API_BASE from "./lib/apiBase"
 
 interface MetricsRow {
   region: string
