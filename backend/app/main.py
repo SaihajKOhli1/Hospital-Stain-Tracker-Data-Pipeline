@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import text, func
 from typing import List, Optional
@@ -12,7 +12,7 @@ from .settings import settings
 
 # Compute dashboard path relative to backend/app/main.py
 BASE_DIR = Path(__file__).resolve().parent  # backend/app
-DASHBOARD_PATH = (BASE_DIR / "../../frontend/dashboard.html").resolve()
+DASHBOARD_PATH = (BASE_DIR / "static" / "dashboard.html").resolve()
 
 app = FastAPI(title="Strain Tracker API")
 
@@ -41,6 +41,14 @@ async def startup_event():
 @app.get("/")
 async def root():
     """Serve the dashboard HTML at root path."""
+    if not DASHBOARD_PATH.exists():
+        return PlainTextResponse(
+            f"Dashboard file not found at: {DASHBOARD_PATH}\n"
+            f"Current working directory: {Path.cwd()}\n"
+            f"BASE_DIR: {BASE_DIR}\n"
+            f"File exists: {DASHBOARD_PATH.exists()}",
+            status_code=500
+        )
     return FileResponse(DASHBOARD_PATH, media_type="text/html")
 
 
