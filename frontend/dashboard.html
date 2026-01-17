@@ -310,7 +310,7 @@
           <span id="debugTimestamp" class="text-slate-900 dark:text-slate-200">—</span>
         </div>
         <div id="debugFileWarning" class="hidden mt-2 p-2 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded text-yellow-800 dark:text-yellow-200">
-          Warning: file:// may block fetch; serve via http://localhost:5173
+          Warning: file:// protocol may block fetch; serve via HTTP server
         </div>
       </div>
     </div>
@@ -318,39 +318,13 @@
 
   <script>
     // -------------------------
-    // API Configuration
-    // -------------------------
-    function getApiBase() {
-      // 1) Check URL parameter ?api=...
-      const urlParams = new URLSearchParams(window.location.search);
-      const apiParam = urlParams.get('api');
-      if (apiParam) {
-        try {
-          return decodeURIComponent(apiParam);
-        } catch (e) {
-          console.warn('Failed to decode API URL parameter:', e);
-        }
-      }
-      
-      // 2) Check window.__API_BASE__
-      if (typeof window.__API_BASE__ !== 'undefined' && window.__API_BASE__) {
-        return window.__API_BASE__;
-      }
-      
-      // 3) Fallback to dev default
-      return "http://localhost:8000";
-    }
-    
-    const API_BASE = getApiBase();
-
-    // -------------------------
     // API Fetch Logic
     // -------------------------
     let currentData = null; // Store current displayed data for CSV export
     const avgCache = new Map(); // Cache for average strain values (key=dateStr, value=avg or null)
 
     async function fetchMetrics(dateStr) {
-      const url = `${API_BASE}/metrics/compare?date=${dateStr}`;
+      const url = `/metrics/compare?date=${dateStr}`;
       
       // Update debug panel with URL
       if (debugUrl) {
@@ -483,7 +457,7 @@
       }
 
       try {
-        const url = `${API_BASE}/metrics/compare?date=${dateStr}`;
+        const url = `/metrics/compare?date=${dateStr}`;
         const response = await fetch(url);
         
         if (!response.ok) {
@@ -512,7 +486,7 @@
 
     async function fetchAvailableDates() {
       try {
-        const url = `${API_BASE}/metrics/available-dates`;
+        const url = `/metrics/available-dates`;
         const response = await fetch(url);
         
         if (!response.ok) {
@@ -529,7 +503,7 @@
 
     async function fetchCoverage(minRows = 30) {
       try {
-        const url = `${API_BASE}/metrics/coverage?min_rows=${minRows}`;
+        const url = `/metrics/coverage?min_rows=${minRows}`;
         const response = await fetch(url);
         
         if (!response.ok) {
