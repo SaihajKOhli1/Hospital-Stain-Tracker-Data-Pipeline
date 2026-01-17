@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -14,7 +14,7 @@ from .models import PipelineRun, Region, HospitalCapacityDaily, MetricsDaily
 from .settings import settings
 
 # Build ID for Railway verification
-BUILD_ID = "railway-proof-2026-01-17-0225"
+BUILD_ID = "railway-switch-2026-01-17-0907"
 
 app = FastAPI(title="Strain Tracker API")
 
@@ -114,10 +114,13 @@ async def whoami():
     }
 
 
-@app.get("/__build")
-async def build_id():
-    """Return build ID as plain text."""
-    return PlainTextResponse(BUILD_ID)
+@app.get("/__build", include_in_schema=False)
+def build_stamp():
+    return JSONResponse({
+        "build_id": BUILD_ID,
+        "railway_git_sha": os.getenv("RAILWAY_GIT_COMMIT_SHA"),
+        "railway_service": os.getenv("RAILWAY_SERVICE_NAME"),
+    })
 
 
 @app.get("/__cors")
