@@ -6,7 +6,7 @@ from starlette.responses import Response
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import text, func
 from typing import List, Optional
-from datetime import date as date_type, timedelta
+from datetime import date as date_type, timedelta, datetime
 from pathlib import Path
 import os
 from .db import get_db, init_db
@@ -17,6 +17,12 @@ from .settings import settings
 BUILD_ID = "railway-proof-2026-01-17-0225"
 
 app = FastAPI(title="Strain Tracker API")
+
+
+@app.get("/_railway", include_in_schema=False)
+def railway_health():
+    return PlainTextResponse("ok", status_code=200)
+
 
 # CORS origins configuration
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "").strip()
@@ -43,8 +49,8 @@ class ConditionalCORSMiddleware(BaseHTTPMiddleware):
         if origin in CORS_ORIGINS:
             response = await call_next(request)
             response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Methods"] = "*"
+            response.headers["Access-Control-Allow-Credentials"] = "false"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
             response.headers["Access-Control-Allow-Headers"] = "*"
             return response
         
@@ -53,8 +59,8 @@ class ConditionalCORSMiddleware(BaseHTTPMiddleware):
             response = Response()
             if origin in CORS_ORIGINS:
                 response.headers["Access-Control-Allow-Origin"] = origin
-                response.headers["Access-Control-Allow-Credentials"] = "true"
-                response.headers["Access-Control-Allow-Methods"] = "*"
+                response.headers["Access-Control-Allow-Credentials"] = "false"
+                response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
                 response.headers["Access-Control-Allow-Headers"] = "*"
             return response
         
@@ -84,8 +90,18 @@ async def startup_event():
 
 @app.get("/health")
 async def health():
-    """Health check endpoint."""
-    return {"status": "ok"}
+    """Health check endpoint - simplest possible, no DB or file reads."""
+    return {"ok": True}
+
+
+@app.get("/__hc_proof")
+async def hc_proof(request: Request):
+    """Debug endpoint for healthcheck troubleshooting."""
+    return {
+        "method": request.method,
+        "path": request.url.path,
+        "time": datetime.now().isoformat()
+    }
 
 
 @app.get("/__whoami")

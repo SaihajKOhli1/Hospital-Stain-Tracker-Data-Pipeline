@@ -3,7 +3,7 @@ builder = "nixpacks"
 
 [deploy]
 startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
-healthcheckPath = "/health"
+healthcheckPath = "/_railway"
 healthcheckTimeout = 100
 
 [env]
