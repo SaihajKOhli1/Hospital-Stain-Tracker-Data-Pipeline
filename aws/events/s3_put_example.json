@@ -1,0 +1,20 @@
+{
+  "Records": [
+    {
+      "eventVersion": "2.1",
+      "eventSource": "aws:s3",
+      "awsRegion": "us-east-1",
+      "eventTime": "2024-01-15T12:00:00.000Z",
+      "eventName": "ObjectCreated:Put",
+      "s3": {
+        "bucket": {
+          "name": "example-bucket"
+        },
+        "object": {
+          "key": "raw/hospital_capacity_raw.csv"
+        }
+      }
+    }
+  ]
+}
+

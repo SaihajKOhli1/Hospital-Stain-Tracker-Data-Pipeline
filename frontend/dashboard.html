@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hospital Strain Tracker — Dashboard</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <script>
+    // Tailwind dark mode via class
+    tailwind.config = { darkMode: 'class' };
+  </script>
+
+  <style>
+    /* Smooth theme transitions */
+    html, body, .theme-animate * {
+      transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+    }
+
+    /* Subtle grid background */
+    .grid-bg {
+      background-image:
+        radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.18) 1px, transparent 0);
+      background-size: 22px 22px;
+    }
+    .dark .grid-bg {
+      background-image:
+        radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.10) 1px, transparent 0);
+    }
+
+    /* Nice focus ring for inputs/buttons */
+    .focus-ring:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
+      border-color: rgba(59, 130, 246, 0.75);
+    }
+
+    /* Table sticky header */
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Scrollbar polish */
+    .scrollbar::-webkit-scrollbar { height: 10px; width: 10px; }
+    .scrollbar::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.55); border-radius: 999px; }
+    .dark .scrollbar::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.28); }
+    .scrollbar::-webkit-scrollbar-track { background: transparent; }
+  </style>
+</head>
+
+<body class="h-full theme-animate bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+  <div class="min-h-full grid-bg">
+    <!-- Top Bar -->
+    <header class="sticky top-0 z-30 border-b border-slate-200/70 dark:border-slate-800/70 bg-white/75 dark:bg-slate-950/70 backdrop-blur">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 shadow-md shadow-blue-600/20 flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" class="text-white" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 10.5V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M8.5 21V14a1.5 1.5 0 0 1 1.5-1.5h4a1.5 1.5 0 0 1 1.5 1.5v7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M2.5 11.2 12 3l9.5 8.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="text-xl font-semibold tracking-tight">Hospital Strain Tracker</h1>
+                <span id="apiStatusPill" class="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400">API: —</span>
+                <span id="demoModeBanner" class="hidden px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">Demo mode: API unreachable</span>
+              </div>
+              <p class="text-sm text-slate-600 dark:text-slate-300">Operational strain overview by state/region</p>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <!-- Date Picker -->
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-slate-600 dark:text-slate-300">Date</span>
+              <input id="datePicker" type="date"
+                class="focus-ring h-10 w-full sm:w-44 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 text-sm shadow-sm"
+              />
+              <span id="noDataWarning" class="hidden text-xs text-amber-600 dark:text-amber-400">No data available</span>
+              <span id="dateRangeLabel" class="hidden text-xs text-slate-500 dark:text-slate-400"></span>
+              <span id="coverageLabel" class="hidden text-xs text-slate-500 dark:text-slate-400"></span>
+            </div>
+
+            <!-- Download CSV -->
+            <button id="downloadBtn"
+              class="focus-ring inline-flex items-center justify-center h-10 rounded-xl px-4 text-sm font-medium
+                     bg-slate-900 text-white shadow-sm hover:bg-slate-800
+                     dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+              title="Download table data as CSV">
+              <svg class="mr-2" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 3v10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M8 10l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Download CSV
+            </button>
+
+            <!-- Theme Toggle -->
+            <button id="themeToggle"
+              class="focus-ring inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow"
+              title="Toggle dark/light mode">
+              <svg id="iconSun" class="hidden dark:block" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <svg id="iconMoon" class="block dark:hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 14.2A7.8 7.8 0 0 1 9.8 3a6.5 6.5 0 1 0 11.2 11.2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+      <!-- KPI Cards -->
+      <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Highest Strain State -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md">
+          <div class="p-5">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm text-slate-600 dark:text-slate-300">Highest Strain State</p>
+                <div class="mt-2 flex items-baseline gap-2">
+                  <h2 id="kpiHighestState" class="text-2xl font-semibold tracking-tight">—</h2>
+                  <span id="kpiHighestValue" class="text-sm font-medium text-slate-600 dark:text-slate-300">—</span>
+                </div>
+              </div>
+              <div id="kpiHighestBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                —
+              </div>
+            </div>
+            <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">Computed from current date selection</p>
+          </div>
+        </div>
+
+        <!-- Average Strain Index -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md">
+          <div class="p-5">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm text-slate-600 dark:text-slate-300">Average Strain Index</p>
+                <div class="mt-2 flex items-baseline gap-2">
+                  <h2 id="kpiAverage" class="text-2xl font-semibold tracking-tight">—</h2>
+                  <span class="text-sm text-slate-600 dark:text-slate-300">/ 100</span>
+                </div>
+              </div>
+              <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-200 shadow-sm flex items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-white dark:text-slate-900" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 19V5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M7 16l4-6 4 4 5-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+            <div class="mt-3 h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <div id="avgProgress" class="h-full rounded-full bg-blue-600" style="width: 0%"></div>
+            </div>
+            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Rolling snapshot across all states</p>
+          </div>
+        </div>
+
+        <!-- States in Crisis -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md">
+          <div class="p-5">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm text-slate-600 dark:text-slate-300">States in Crisis</p>
+                <div class="mt-2 flex items-baseline gap-2">
+                  <h2 id="kpiCrisis" class="text-2xl font-semibold tracking-tight">—</h2>
+                  <span class="text-sm text-slate-600 dark:text-slate-300">states</span>
+                </div>
+              </div>
+              <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-rose-600 to-orange-500 shadow-sm shadow-rose-600/20 flex items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-white" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 9v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M10.3 3.6 2.3 17.5A2 2 0 0 0 4 20.5h16a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+            <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">Crisis threshold: &gt; 80% strain</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Table + Charts -->
+      <section class="mt-6 grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <!-- Data Table -->
+        <div class="lg:col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+          <div class="p-5 border-b border-slate-200/70 dark:border-slate-800/70">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h3 class="text-base font-semibold tracking-tight">Regional Strain Table</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Color-coded by strain level; Δ shows change vs. previous snapshot</p>
+              </div>
+              <div class="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <span class="inline-flex items-center gap-1">
+                  <span class="h-2 w-2 rounded-full bg-emerald-500"></span>&lt;70
+                </span>
+                <span class="inline-flex items-center gap-1">
+                  <span class="h-2 w-2 rounded-full bg-orange-500"></span>70–80
+                </span>
+                <span class="inline-flex items-center gap-1">
+                  <span class="h-2 w-2 rounded-full bg-rose-500"></span>&gt;80
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="max-h-[520px] overflow-auto scrollbar">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="bg-white/80 dark:bg-slate-900/80">
+                  <th class="px-5 py-3 text-left font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800">Region</th>
+                  <th class="px-5 py-3 text-right font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800">Strain Index</th>
+                  <th class="px-5 py-3 text-right font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800">Δ Strain</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody" class="divide-y divide-slate-200 dark:divide-slate-800"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="lg:col-span-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <!-- Bar Chart -->
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+            <div class="p-5 border-b border-slate-200/70 dark:border-slate-800/70">
+              <h3 class="text-base font-semibold tracking-tight">Strain Index by State</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Current snapshot (API data)</p>
+            </div>
+            <div class="p-5">
+              <canvas id="barChart" height="170"></canvas>
+            </div>
+          </div>
+
+          <!-- Line Chart -->
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+            <div class="p-5 border-b border-slate-200/70 dark:border-slate-800/70">
+              <h3 class="text-base font-semibold tracking-tight">Trend Over Time</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">7-day average strain history</p>
+              <p id="trendWarning" class="text-xs text-amber-600 dark:text-amber-400 mt-1 hidden">Not enough history for trend</p>
+            </div>
+            <div class="p-5">
+              <canvas id="lineChart" height="170"></canvas>
+            </div>
+          </div>
+
+          <!-- Footer Note -->
+          <div class="xl:col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+            <div class="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div class="text-sm">
+                <span class="font-semibold">Tip:</span>
+                <span class="text-slate-600 dark:text-slate-300">Use the date picker to simulate snapshots; export table via CSV for analysis.</span>
+              </div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">
+                Last refreshed: <span id="lastRefreshed">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Data Source Footer -->
+      <footer class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
+        <p class="text-xs text-slate-400 dark:text-slate-500 text-center">
+          Data source: U.S. HHS hospital capacity reports
+        </p>
+      </footer>
+    </main>
+
+    <!-- Debug Panel -->
+    <div id="debugPanel" class="fixed bottom-4 right-4 z-50 w-72 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg hidden">
+      <div class="flex items-center justify-between px-3 py-2 border-b border-slate-200 dark:border-slate-800">
+        <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Debug</span>
+        <button id="debugToggle" class="text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200">
+          [−]
+        </button>
+      </div>
+      <div id="debugContent" class="p-3 space-y-2 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <span class="text-slate-600 dark:text-slate-400">Last URL:</span>
+          <span id="debugUrl" class="font-mono text-slate-900 dark:text-slate-200 truncate">—</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <span class="text-slate-600 dark:text-slate-400">Status:</span>
+          <span id="debugStatus" class="text-slate-900 dark:text-slate-200">—</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <span class="text-slate-600 dark:text-slate-400">Rows:</span>
+          <span id="debugRows" class="text-slate-900 dark:text-slate-200">—</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <span class="text-slate-600 dark:text-slate-400">Top Region:</span>
+          <span id="debugTopRegion" class="text-slate-900 dark:text-slate-200">—</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <span class="text-slate-600 dark:text-slate-400">Last Fetch:</span>
+          <span id="debugTimestamp" class="text-slate-900 dark:text-slate-200">—</span>
+        </div>
+        <div id="debugFileWarning" class="hidden mt-2 p-2 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded text-yellow-800 dark:text-yellow-200">
+          Warning: file:// may block fetch; serve via http://localhost:5173
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // -------------------------
+    // API Configuration
+    // -------------------------
+    function getApiBase() {
+      // 1) Check URL parameter ?api=...
+      const urlParams = new URLSearchParams(window.location.search);
+      const apiParam = urlParams.get('api');
+      if (apiParam) {
+        try {
+          return decodeURIComponent(apiParam);
+        } catch (e) {
+          console.warn('Failed to decode API URL parameter:', e);
+        }
+      }
+      
+      // 2) Check window.__API_BASE__
+      if (typeof window.__API_BASE__ !== 'undefined' && window.__API_BASE__) {
+        return window.__API_BASE__;
+      }
+      
+      // 3) Fallback to dev default
+      return "http://localhost:8000";
+    }
+    
+    const API_BASE = getApiBase();
+
+    // -------------------------
+    // API Fetch Logic
+    // -------------------------
+    let currentData = null; // Store current displayed data for CSV export
+    const avgCache = new Map(); // Cache for average strain values (key=dateStr, value=avg or null)
+
+    async function fetchMetrics(dateStr) {
+      const url = `${API_BASE}/metrics/compare?date=${dateStr}`;
+      
+      // Update debug panel with URL
+      if (debugUrl) {
+        debugUrl.textContent = url.length > 40 ? url.substring(0, 37) + '...' : url;
+        debugUrl.title = url;
+      }
+      
+      try {
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Transform API response to internal format
+        const rows = (data.rows || []).map(row => ({
+          region: row.region,
+          strain: row.strain_index,
+          prev: row.prev_strain_index || null,
+          delta: row.delta || null
+        }));
+        
+        // Set status pill to OK
+        if (apiStatusPill && !isLoading) {
+          apiStatusPill.textContent = "API: OK";
+          apiStatusPill.className = "px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200";
+        }
+        
+        // Hide demo mode banner on success
+        if (demoModeBanner) {
+          demoModeBanner.classList.add('hidden');
+        }
+        
+        // Update debug panel - success
+        if (debugStatus) {
+          debugStatus.textContent = "OK";
+          debugStatus.className = "text-emerald-600 dark:text-emerald-400 font-semibold";
+        }
+        if (debugTimestamp) {
+          const now = new Date();
+          debugTimestamp.textContent = now.toLocaleTimeString();
+        }
+        
+        return { date: data.date, rows, url };
+      } catch (error) {
+        console.error('Failed to fetch metrics:', error);
+        
+        // Set status pill to ERROR
+        if (apiStatusPill && !isLoading) {
+          apiStatusPill.textContent = "API: ERROR";
+          apiStatusPill.className = "px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200";
+        }
+        
+        // Show demo mode banner on error
+        if (demoModeBanner) {
+          demoModeBanner.classList.remove('hidden');
+        }
+        
+        // Update debug panel - error
+        if (debugStatus) {
+          debugStatus.textContent = "ERROR";
+          debugStatus.className = "text-rose-600 dark:text-rose-400 font-semibold";
+        }
+        if (debugRows) {
+          debugRows.textContent = "0";
+        }
+        if (debugTopRegion) {
+          debugTopRegion.textContent = "—";
+        }
+        
+        return { date: null, rows: [], url };
+      }
+    }
+
+    // -------------------------
+    // Theme handling
+    // -------------------------
+    const root = document.documentElement;
+    const themeToggle = document.getElementById('themeToggle');
+
+    function setTheme(mode) {
+      if (mode === 'dark') root.classList.add('dark');
+      else root.classList.remove('dark');
+      localStorage.setItem('hst_theme', mode);
+      refreshCharts(); // update chart grid/ticks colors
+    }
+
+    function initTheme() {
+      const saved = localStorage.getItem('hst_theme');
+      if (saved === 'dark' || saved === 'light') {
+        setTheme(saved);
+        return;
+      }
+      // System preference fallback
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setTheme(prefersDark ? 'dark' : 'light');
+    }
+
+    themeToggle.addEventListener('click', () => {
+      const isDark = root.classList.contains('dark');
+      setTheme(isDark ? 'light' : 'dark');
+    });
+
+    // -------------------------
+    // Helpers
+    // -------------------------
+    function formatPercent(n) {
+      return `${Math.round(n)}%`;
+    }
+
+    function dateRangeEndingOn(dateStr, days) {
+      // Returns array of YYYY-MM-DD strings for the last `days` days inclusive
+      const endDate = new Date(dateStr);
+      const dates = [];
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(endDate);
+        date.setDate(date.getDate() - i);
+        dates.push(date.toISOString().split('T')[0]);
+      }
+      return dates;
+    }
+
+    async function fetchAvgStrain(dateStr) {
+      // Check cache first
+      if (avgCache.has(dateStr)) {
+        const cached = avgCache.get(dateStr);
+        return cached !== null ? { date: dateStr, avg: cached } : null;
+      }
+
+      try {
+        const url = `${API_BASE}/metrics/compare?date=${dateStr}`;
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          avgCache.set(dateStr, null);
+          return null;
+        }
+        
+        const data = await response.json();
+        const rows = data.rows || [];
+        
+        if (rows.length === 0) {
+          avgCache.set(dateStr, null);
+          return null;
+        }
+        
+        // Compute average strain
+        const avg = rows.reduce((sum, row) => sum + (row.strain_index || 0), 0) / rows.length;
+        avgCache.set(dateStr, avg);
+        return { date: dateStr, avg };
+      } catch (error) {
+        console.error(`Failed to fetch avg strain for ${dateStr}:`, error);
+        avgCache.set(dateStr, null);
+        return null;
+      }
+    }
+
+    async function fetchAvailableDates() {
+      try {
+        const url = `${API_BASE}/metrics/available-dates`;
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('Failed to fetch available dates:', error);
+        return null;
+      }
+    }
+
+    async function fetchCoverage(minRows = 30) {
+      try {
+        const url = `${API_BASE}/metrics/coverage?min_rows=${minRows}`;
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('Failed to fetch coverage:', error);
+        return null;
+      }
+    }
+
+    async function fetchTrend(dateStr, days = 7) {
+      // Build date list (7 dates)
+      const dates = dateRangeEndingOn(dateStr, days);
+      
+      try {
+        // Fetch all averages in parallel
+        const promises = dates.map(d => fetchAvgStrain(d));
+        const results = await Promise.all(promises);
+        
+        // Filter out nulls and build labels/values
+        const valid = results.filter(r => r !== null);
+        const labels = valid.map(r => r.date); // Use YYYY-MM-DD format
+        const values = valid.map(r => r.avg);
+        
+        return { labels, values, dates: valid.map(r => r.date) };
+      } catch (error) {
+        console.error('Failed to fetch trend:', error);
+        // Return empty trend on error (no fake data)
+        return { labels: [], values: [], dates: [] };
+      }
+    }
+
+    function strainBadge(strain) {
+      if (strain > 80) return { label: "CRISIS", cls: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200" };
+      if (strain >= 70) return { label: "ELEVATED", cls: "bg-orange-100 text-orange-700 dark:bg-orange-900/35 dark:text-orange-200" };
+      return { label: "STABLE", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-200" };
+    }
+
+    function strainPill(strain) {
+      if (strain > 80) return "bg-rose-500/10 text-rose-700 dark:text-rose-200 border border-rose-500/20";
+      if (strain >= 70) return "bg-orange-500/10 text-orange-700 dark:text-orange-200 border border-orange-500/20";
+      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-200 border border-emerald-500/20";
+    }
+
+    function deltaCell(delta) {
+      if (delta === null || delta === undefined) {
+        return { text: "—", cls: "text-slate-600 dark:text-slate-300" };
+      }
+      const sign = delta > 0 ? "+" : "";
+      const cls = delta > 0
+        ? "text-rose-600 dark:text-rose-300"
+        : delta < 0
+          ? "text-emerald-600 dark:text-emerald-300"
+          : "text-slate-600 dark:text-slate-300";
+      return { text: `${sign}${delta.toFixed(2)}`, cls };
+    }
+
+    function nowStamp() {
+      const d = new Date();
+      return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function setLoading(on) {
+      isLoading = on;
+      
+      // Update API pill
+      if (apiStatusPill) {
+        if (on) {
+          apiStatusPill.textContent = "API: LOADING";
+          apiStatusPill.className = "px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200";
+        }
+      }
+      
+      // Disable/enable date picker
+      if (datePicker) {
+        datePicker.disabled = on;
+        if (on) {
+          datePicker.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+          datePicker.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+      }
+      
+      // Disable/enable download button
+      if (downloadBtn) {
+        downloadBtn.disabled = on;
+        if (on) {
+          downloadBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+          downloadBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+      }
+    }
+
+    // -------------------------
+    // UI render (KPIs + Table)
+    // -------------------------
+    const tableBody = document.getElementById('tableBody');
+    const kpiHighestState = document.getElementById('kpiHighestState');
+    const kpiHighestValue = document.getElementById('kpiHighestValue');
+    const kpiHighestBadge = document.getElementById('kpiHighestBadge');
+    const kpiAverage = document.getElementById('kpiAverage');
+    const avgProgress = document.getElementById('avgProgress');
+    const kpiCrisis = document.getElementById('kpiCrisis');
+    const lastRefreshed = document.getElementById('lastRefreshed');
+    const apiStatusPill = document.getElementById('apiStatusPill');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const demoModeBanner = document.getElementById('demoModeBanner');
+    const datePicker = document.getElementById('datePicker');
+    const noDataWarning = document.getElementById('noDataWarning');
+    const dateRangeLabel = document.getElementById('dateRangeLabel');
+    const coverageLabel = document.getElementById('coverageLabel');
+    
+    // Loading state
+    let isLoading = false;
+    let availableDates = null; // Store available dates from API
+    
+    // Debug panel elements (guarded)
+    const debugPanel = document.getElementById('debugPanel');
+    const debugContent = document.getElementById('debugContent');
+    const debugToggle = document.getElementById('debugToggle');
+    const debugUrl = document.getElementById('debugUrl');
+    const debugStatus = document.getElementById('debugStatus');
+    const debugRows = document.getElementById('debugRows');
+    const debugTopRegion = document.getElementById('debugTopRegion');
+    const debugTimestamp = document.getElementById('debugTimestamp');
+    const debugFileWarning = document.getElementById('debugFileWarning');
+
+    async function renderDashboard(dateStr) {
+      setLoading(true);
+      
+      try {
+        // Fetch data from API
+        const apiData = await fetchMetrics(dateStr);
+        // Use spread operator to create a new array before sorting (prevents mutation)
+        const sortedRows = [...apiData.rows].sort((a, b) => b.strain - a.strain);
+        
+        // Debug: log row count
+        console.log("Fetched rows:", apiData.rows.length);
+        
+        // Store current data for CSV export
+        currentData = { date: apiData.date, rows: sortedRows };
+
+        // KPIs - handle empty data gracefully
+        if (sortedRows.length === 0) {
+          if (kpiHighestState) kpiHighestState.textContent = "—";
+          if (kpiHighestValue) kpiHighestValue.textContent = "—";
+          if (kpiHighestBadge) {
+            kpiHighestBadge.textContent = "—";
+            kpiHighestBadge.className = "px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200";
+          }
+          if (kpiAverage) kpiAverage.textContent = "—";
+          if (avgProgress) avgProgress.style.width = "0%";
+          if (kpiCrisis) kpiCrisis.textContent = "—";
+        } else {
+          const highest = sortedRows[0];
+          const avg = sortedRows.reduce((s, r) => s + r.strain, 0) / sortedRows.length;
+          const crisisCount = sortedRows.filter(r => r.strain > 80).length;
+
+          if (kpiHighestState) kpiHighestState.textContent = highest.region;
+          if (kpiHighestValue) kpiHighestValue.textContent = formatPercent(highest.strain);
+
+          const hb = strainBadge(highest.strain);
+          if (kpiHighestBadge) {
+            kpiHighestBadge.textContent = hb.label;
+            kpiHighestBadge.className = `px-2.5 py-1 rounded-full text-xs font-semibold ${hb.cls}`;
+          }
+
+          if (kpiAverage) kpiAverage.textContent = avg.toFixed(1);
+          if (avgProgress) avgProgress.style.width = `${Math.max(0, Math.min(100, avg))}%`;
+
+          if (kpiCrisis) kpiCrisis.textContent = crisisCount.toString();
+        }
+
+        // Table
+        if (tableBody) {
+          tableBody.innerHTML = "";
+          sortedRows.forEach((r) => {
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-slate-50 dark:hover:bg-slate-800/40";
+
+            const tdRegion = document.createElement('td');
+            tdRegion.className = "px-5 py-3 font-medium";
+            tdRegion.textContent = r.region;
+
+            const tdStrain = document.createElement('td');
+            tdStrain.className = "px-5 py-3 text-right";
+            tdStrain.innerHTML = `
+              <span class="inline-flex items-center justify-end gap-2">
+                <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${strainPill(r.strain)}">${formatPercent(r.strain)}</span>
+              </span>
+            `;
+
+            const tdDelta = document.createElement('td');
+            const d = deltaCell(r.delta);
+            tdDelta.className = `px-5 py-3 text-right font-semibold ${d.cls}`;
+            tdDelta.textContent = d.text;
+
+            tr.appendChild(tdRegion);
+            tr.appendChild(tdStrain);
+            tr.appendChild(tdDelta);
+            tableBody.appendChild(tr);
+          });
+        }
+
+        // Fetch trend data (7 days) - handles errors gracefully
+        const trend = await fetchTrend(dateStr, 7);
+        
+        // Charts - pass all sorted rows
+        updateCharts(sortedRows, trend);
+
+        // Enable/disable CSV export button based on rows
+        if (downloadBtn) {
+          if (sortedRows.length === 0) {
+            downloadBtn.disabled = true;
+            downloadBtn.classList.add('opacity-50', 'cursor-not-allowed');
+          } else {
+            downloadBtn.disabled = false;
+            downloadBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+          }
+        }
+
+        // Update debug panel with rows count and top region
+        if (debugRows) {
+          debugRows.textContent = sortedRows.length.toString();
+        }
+        if (debugTopRegion) {
+          debugTopRegion.textContent = sortedRows.length > 0 ? sortedRows[0].region : "—";
+        }
+
+        if (lastRefreshed) {
+          lastRefreshed.textContent = nowStamp();
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // -------------------------
+    // Charts
+    // -------------------------
+    let barChartInstance = null;
+    let lineChartInstance = null;
+
+    function chartThemeColors() {
+      const isDark = root.classList.contains('dark');
+      return {
+        grid: isDark ? "rgba(148,163,184,0.14)" : "rgba(148,163,184,0.28)",
+        ticks: isDark ? "rgba(226,232,240,0.85)" : "rgba(15,23,42,0.75)",
+        border: isDark ? "rgba(148,163,184,0.22)" : "rgba(148,163,184,0.35)"
+      };
+    }
+
+    function buildBarColors(strains) {
+      // Color-coded strain levels
+      return strains.map(s => {
+        if (s > 80) return "rgba(244, 63, 94, 0.75)";   // rose
+        if (s >= 70) return "rgba(249, 115, 22, 0.75)"; // orange
+        return "rgba(16, 185, 129, 0.75)";              // emerald
+      });
+    }
+
+    function updateCharts(rows, trend = null) {
+      // Handle empty rows gracefully
+      const labels = rows.length > 0 ? rows.map(r => r.region) : [];
+      const values = rows.length > 0 ? rows.map(r => r.strain) : [];
+
+      const t = chartThemeColors();
+      
+      // Show/hide trend warning
+      const trendWarning = document.getElementById('trendWarning');
+      if (trendWarning) {
+        if (trend && trend.values.length < 2) {
+          trendWarning.classList.remove('hidden');
+        } else {
+          trendWarning.classList.add('hidden');
+        }
+      }
+
+      // Bar chart
+      const barCtx = document.getElementById('barChart');
+      const barData = {
+        labels,
+        datasets: [{
+          label: "Strain Index",
+          data: values,
+          backgroundColor: buildBarColors(values),
+          borderColor: t.border,
+          borderWidth: 1,
+          borderRadius: 10
+        }]
+      };
+
+      const barOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` ${ctx.parsed.y}%`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: t.ticks, maxRotation: 0, autoSkip: true }
+          },
+          y: {
+            beginAtZero: true,
+            max: 100,
+            grid: { color: t.grid },
+            ticks: { color: t.ticks, callback: (v) => `${v}%` }
+          }
+        }
+      };
+
+      if (barChartInstance) {
+        // Update existing chart - handle empty data
+        if (rows.length === 0) {
+          barChartInstance.data.labels = [];
+          barChartInstance.data.datasets[0].data = [];
+        } else {
+          barChartInstance.data.labels = labels;
+          barChartInstance.data.datasets[0].data = values;
+          barChartInstance.data.datasets[0].backgroundColor = buildBarColors(values);
+        }
+        barChartInstance.update();
+      } else {
+        barChartInstance = new Chart(barCtx, { type: 'bar', data: barData, options: barOptions });
+      }
+
+      // Line chart - use real trend data if available
+      const lineCtx = document.getElementById('lineChart');
+      const trendLabels = trend && trend.labels.length > 0 ? trend.labels : [];
+      const trendValues = trend && trend.values.length > 0 ? trend.values : [];
+      
+      const lineData = {
+        labels: trendLabels,
+        datasets: [{
+          label: "Avg Strain",
+          data: trendValues,
+          tension: 0.35,
+          borderColor: "rgba(59, 130, 246, 0.9)",
+          backgroundColor: "rgba(59, 130, 246, 0.18)",
+          fill: true,
+          pointRadius: 3,
+          pointHoverRadius: 5
+        }]
+      };
+
+      const lineOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` ${ctx.parsed.y}%`
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: t.ticks } },
+          y: {
+            beginAtZero: true,
+            max: 100,
+            grid: { color: t.grid },
+            ticks: { color: t.ticks, callback: (v) => `${v}%` }
+          }
+        }
+      };
+
+      if (lineChartInstance) {
+        // Update existing line chart with trend data
+        lineChartInstance.data.labels = trendLabels;
+        lineChartInstance.data.datasets[0].data = trendValues;
+        lineChartInstance.update();
+      } else {
+        lineChartInstance = new Chart(lineCtx, { type: 'line', data: lineData, options: lineOptions });
+      }
+    }
+
+    function refreshCharts() {
+      // Re-apply theme colors without changing data
+      if (!barChartInstance && !lineChartInstance) return;
+      const t = chartThemeColors();
+
+      if (barChartInstance) {
+        barChartInstance.options.scales.x.ticks.color = t.ticks;
+        barChartInstance.options.scales.y.ticks.color = t.ticks;
+        barChartInstance.options.scales.y.grid.color = t.grid;
+        barChartInstance.data.datasets[0].borderColor = t.border;
+        barChartInstance.update();
+      }
+
+      if (lineChartInstance) {
+        lineChartInstance.options.scales.x.ticks.color = t.ticks;
+        lineChartInstance.options.scales.y.ticks.color = t.ticks;
+        lineChartInstance.options.scales.y.grid.color = t.grid;
+        lineChartInstance.update();
+      }
+    }
+
+    // -------------------------
+    // CSV Export
+    // -------------------------
+    function toCSV(data) {
+      const header = ["date", "region", "strain_index", "prev_strain_index", "delta"];
+      const lines = [header.join(",")];
+      (data.rows || []).forEach(r => {
+        const safeRegion = `"${String(r.region).replace(/"/g, '""')}"`;
+        const date = data.date || "";
+        const strain = r.strain.toFixed(2);
+        const prev = r.prev !== null ? r.prev.toFixed(2) : "";
+        const delta = r.delta !== null ? r.delta.toFixed(2) : "";
+        lines.push([date, safeRegion, strain, prev, delta].join(","));
+      });
+      return lines.join("\n");
+    }
+
+    function downloadCSV() {
+      if (!currentData || !currentData.rows || currentData.rows.length === 0) {
+        console.error('No data available to export');
+        return;
+      }
+      
+      const csv = toCSV(currentData);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = currentData.date || "snapshot";
+      a.download = `hospital_strain_${dateStr}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      URL.revokeObjectURL(url);
+    }
+
+    // -------------------------
+    // Init
+    // -------------------------
+
+    async function initDashboard() {
+      // Fetch available dates first (for min/max range)
+      const datesData = await fetchAvailableDates();
+      
+      if (datesData && datesData.max_date) {
+        // Dates available - set min/max attributes
+        availableDates = datesData;
+        
+        if (datePicker) {
+          // Set min and max attributes
+          if (datesData.min_date) {
+            datePicker.min = datesData.min_date;
+          }
+          if (datesData.max_date) {
+            datePicker.max = datesData.max_date;
+          }
+        }
+        
+        // Show date range label
+        if (dateRangeLabel) {
+          const minDate = datesData.min_date || "—";
+          const maxDate = datesData.max_date || "—";
+          const count = datesData.count || 0;
+          dateRangeLabel.textContent = `Data range: ${minDate} → ${maxDate} (${count} days)`;
+          dateRangeLabel.classList.remove('hidden');
+        }
+      } else {
+        // No dates available
+        availableDates = null;
+        
+        // Hide date range label
+        if (dateRangeLabel) {
+          dateRangeLabel.classList.add('hidden');
+        }
+      }
+      
+      // Fetch coverage to get best_date with good coverage
+      const coverage = await fetchCoverage(30);
+      
+      // Determine default date: use best_date if available, otherwise max_date, otherwise fallback
+      let defaultDate = null;
+      
+      if (coverage && coverage.best_date) {
+        // Use best_date from coverage (has good coverage)
+        defaultDate = coverage.best_date;
+        
+        // Show coverage label
+        if (coverageLabel) {
+          const bestRows = coverage.best_rows || 0;
+          coverageLabel.textContent = `Coverage: ${bestRows} regions`;
+          coverageLabel.classList.remove('hidden');
+        }
+      } else if (datesData && datesData.max_date) {
+        // Fallback to max_date if coverage not available
+        defaultDate = datesData.max_date;
+        
+        // Hide coverage label
+        if (coverageLabel) {
+          coverageLabel.classList.add('hidden');
+        }
+      } else {
+        // Final fallback
+        defaultDate = "2021-06-12";
+        
+        // Hide coverage label
+        if (coverageLabel) {
+          coverageLabel.classList.add('hidden');
+        }
+      }
+      
+      // Set date picker value and render
+      if (datePicker && defaultDate) {
+        datePicker.value = defaultDate;
+        await renderDashboard(defaultDate);
+      }
+      
+      // Handle no data warning
+      if (noDataWarning) {
+        if (!datesData || !datesData.max_date) {
+          noDataWarning.classList.remove('hidden');
+        } else {
+          noDataWarning.classList.add('hidden');
+        }
+      }
+    }
+
+    function setDefaultDate() {
+      // Fallback function - now handled by initDashboard
+      if (datePicker && !datePicker.value) {
+        datePicker.value = "2021-06-12";
+      }
+    }
+
+    if (datePicker) {
+      datePicker.addEventListener('change', () => {
+        if (datePicker.value) {
+          renderDashboard(datePicker.value);
+        }
+      });
+    }
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', () => downloadCSV());
+    }
+
+    // Debug panel toggle
+    if (debugToggle && debugContent) {
+      debugToggle.addEventListener('click', () => {
+        const isHidden = debugContent.style.display === 'none';
+        debugContent.style.display = isHidden ? 'block' : 'none';
+        debugToggle.textContent = isHidden ? '[−]' : '[+]';
+      });
+    }
+
+    // Check for file:// protocol warning
+    if (debugFileWarning && window.location.protocol === 'file:') {
+      debugFileWarning.classList.remove('hidden');
+    }
+
+    // Show debug panel if ?debug=true is in URL
+    if (debugPanel) {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('debug') === 'true') {
+        debugPanel.classList.remove('hidden');
+      }
+    }
+
+    initTheme();
+    initDashboard();
+  </script>
+</body>
+</html>

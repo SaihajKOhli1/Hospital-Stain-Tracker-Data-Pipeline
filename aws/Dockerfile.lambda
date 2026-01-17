@@ -1,0 +1,16 @@
+# Lambda container image for ETL processing
+FROM public.ecr.aws/lambda/python:3.11
+
+# Copy backend code
+COPY backend/app /var/task/app
+COPY backend/requirements.txt /var/task/requirements.txt
+
+# Install dependencies
+RUN pip install --no-cache-dir -r /var/task/requirements.txt
+
+# Copy Lambda handler
+COPY aws/lambda_handler.py /var/task/lambda_handler.py
+
+# Set handler
+CMD ["lambda_handler.handler"]
+
