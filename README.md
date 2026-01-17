@@ -157,3 +157,39 @@ The frontend displays hospital strain metrics with:
 
 The backend service runs with `--reload` flag for hot-reloading during development. Code changes in `backend/app/` will automatically restart the server.
 
+
+## Deployment (Railway)
+
+Deploy both backend and frontend services to Railway.
+
+### Backend Service
+
+1. **Create a new service** in Railway dashboard
+2. **Connect your repository** and configure:
+   - **Root Directory:** `backend`
+   - **Start Command:** `bash -lc "uvicorn app.main:app --host 0.0.0.0 --port $PORT"`
+   - **Generate Domain** (Railway will provide a URL)
+3. **Set environment variables:**
+   - `DATABASE_URL` - PostgreSQL connection string
+   - `CORS_ORIGINS` - (Optional) Comma-separated list of allowed origins
+4. **Test the deployment:**
+   - Health check: `https://<backend-domain>/health`
+   - API docs: `https://<backend-domain>/docs`
+
+### Frontend Service
+
+1. **Create a new service** in Railway dashboard
+2. **Connect your repository** and configure:
+   - **Root Directory:** `frontend`
+   - **Build Command:** `npm ci && npm run build`
+   - **Start Command:** `bash -lc "npm run preview -- --host 0.0.0.0 --port $PORT"`
+   - **Generate Domain** (Railway will provide a URL)
+3. **Add environment variable:**
+   - `VITE_API_BASE_URL` - Set to `https://<backend-domain>` (no trailing slash)
+4. **Redeploy** the frontend service to apply the environment variable
+
+### Testing Deployment
+
+- Backend health: `https://<backend-domain>/health`
+- Backend docs: `https://<backend-domain>/docs`
+- Frontend: `https://<frontend-domain>`
