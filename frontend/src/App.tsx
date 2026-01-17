@@ -29,7 +29,7 @@ function App() {
     
     try {
       const url = selectedDate 
-        ? `${API_BASE}/compare?date=${selectedDate}`
+        ? `${API_BASE}/metrics/compare?date=${selectedDate}`
         : `${API_BASE}/metrics/latest`
       
       const response = await fetch(url)

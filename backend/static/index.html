@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hospital Strain Tracker — Dashboard</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <script>
+    // Tailwind dark mode via class
+    tailwind.config = { darkMode: 'class' };
+  </script>
+
+  <style>
+    /* Smooth theme transitions */
+    html, body, .theme-animate * {
+      transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+    }
+
+    /* Subtle grid background */
+    .grid-bg {
+      background-image:
+        radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.18) 1px, transparent 0);
+      background-size: 22px 22px;
+    }
+    .dark .grid-bg {
+      background-image:
+        radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.10) 1px, transparent 0);
+    }
+
+    /* Nice focus ring for inputs/buttons */
+    .focus-ring:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
+      border-color: rgba(59, 130, 246, 0.75);
+    }
+
+    /* Table sticky header */
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Scrollbar polish */
+    .scrollbar::-webkit-scrollbar { height: 10px; width: 10px; }
+    .scrollbar::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.55); border-radius: 999px; }
+    .dark .scrollbar::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.28); }
+    .scrollbar::-webkit-scrollbar-track { background: transparent; }
+  </style>
+</head>
+
+<body class="h-full theme-animate bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+  <div class="min-h-full grid-bg">
+    <!-- Top Bar -->
+    <header class="sticky top-0 z-30 border-b border-slate-200/70 dark:border-slate-800/70 bg-white/75 dark:bg-slate-950/70 backdrop-blur">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 shadow-md shadow-blue-600/20 flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" class="text-white" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 10.5V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M8.5 21V14a1.5 1.5 0 0 1 1.5-1.5h4a1.5 1.5 0 0 1 1.5 1.5v7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M2.5 11.2 12 3l9.5 8.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div>
+              <h1 class="text-xl font-semibold tracking-tight">Hospital Strain Tracker</h1>
+              <p class="text-sm text-slate-600 dark:text-slate-300">Operational strain overview by state/region</p>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <!-- Date Picker -->
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-slate-600 dark:text-slate-300">Date</span>
+              <input id="datePicker" type="date"
+                class="focus-ring h-10 w-full sm:w-44 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 text-sm shadow-sm"
+              />
+            </div>
+
+            <!-- Download CSV -->
+            <button id="downloadBtn"
+              class="focus-ring inline-flex items-center justify-center h-10 rounded-xl px-4 text-sm font-medium
+                     bg-slate-900 text-white shadow-sm hover:bg-slate-800
+                     dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+              title="Download table data as CSV">
+              <svg class="mr-2" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 3v10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M8 10l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Download CSV
+            </button>
+
+            <!-- Theme Toggle -->
+            <button id="themeToggle"
+              class="focus-ring inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow"
+              title="Toggle dark/light mode">
+              <svg id="iconSun" class="hidden dark:block" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <svg id="iconMoon" class="block dark:hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 14.2A7.8 7.8 0 0 1 9.8 3a6.5 6.5 0 1 0 11.2 11.2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+      <!-- KPI Cards -->
+      <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Highest Strain State -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md">
+          <div class="p-5">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm text-slate-600 dark:text-slate-300">Highest Strain State</p>
+                <div class="mt-2 flex items-baseline gap-2">
+                  <h2 id="kpiHighestState" class="text-2xl font-semibold tracking-tight">—</h2>
+                  <span id="kpiHighestValue" class="text-sm font-medium text-slate-600 dark:text-slate-300">—</span>
+                </div>
+              </div>
+              <div id="kpiHighestBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                —
+              </div>
+            </div>
+            <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">State experiencing maximum hospital capacity pressure</p>
+          </div>
+        </div>
+
+        <!-- Average Strain Index -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md">
+          <div class="p-5">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm text-slate-600 dark:text-slate-300">Average Strain Index</p>
+                <div class="mt-2 flex items-baseline gap-2">
+                  <h2 id="kpiAverage" class="text-2xl font-semibold tracking-tight">—</h2>
+                  <span class="text-sm text-slate-600 dark:text-slate-300">/ 100</span>
+                </div>
+              </div>
+              <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-200 shadow-sm flex items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-white dark:text-slate-900" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 19V5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M7 16l4-6 4 4 5-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+            <div class="mt-3 h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <div id="avgProgress" class="h-full rounded-full bg-blue-600" style="width: 0%"></div>
+            </div>
+            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">National average across all reporting facilities</p>
+          </div>
+        </div>
+
+        <!-- States in Crisis -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md">
+          <div class="p-5">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm text-slate-600 dark:text-slate-300">States in Crisis</p>
+                <div class="mt-2 flex items-baseline gap-2">
+                  <h2 id="kpiCrisis" class="text-2xl font-semibold tracking-tight">—</h2>
+                  <span class="text-sm text-slate-600 dark:text-slate-300">states</span>
+                </div>
+              </div>
+              <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-rose-600 to-orange-500 shadow-sm shadow-rose-600/20 flex items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-white" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 9v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M10.3 3.6 2.3 17.5A2 2 0 0 0 4 20.5h16a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+            <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">States exceeding 80% operational strain threshold</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Table + Charts -->
+      <section class="mt-6 grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <!-- Data Table -->
+        <div class="lg:col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+          <div class="p-5 border-b border-slate-200/70 dark:border-slate-800/70">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h3 class="text-base font-semibold tracking-tight">Regional Strain Table</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Color-coded by strain level; Δ shows change vs. previous snapshot</p>
+              </div>
+              <div class="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <span class="inline-flex items-center gap-1">
+                  <span class="h-2 w-2 rounded-full bg-emerald-500"></span>&lt;70
+                </span>
+                <span class="inline-flex items-center gap-1">
+                  <span class="h-2 w-2 rounded-full bg-orange-500"></span>70–80
+                </span>
+                <span class="inline-flex items-center gap-1">
+                  <span class="h-2 w-2 rounded-full bg-rose-500"></span>&gt;80
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="max-h-[520px] overflow-auto scrollbar">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="bg-white/80 dark:bg-slate-900/80">
+                  <th class="px-5 py-3 text-left font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800">Region</th>
+                  <th class="px-5 py-3 text-right font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800">Strain Index</th>
+                  <th class="px-5 py-3 text-right font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800">Δ Strain</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody" class="divide-y divide-slate-200 dark:divide-slate-800"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="lg:col-span-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <!-- Bar Chart -->
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+            <div class="p-5 border-b border-slate-200/70 dark:border-slate-800/70">
+              <h3 class="text-base font-semibold tracking-tight">Strain Index by State</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Current snapshot (dummy data)</p>
+            </div>
+            <div class="p-5">
+              <canvas id="barChart" height="170"></canvas>
+            </div>
+          </div>
+
+          <!-- Line Chart -->
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+            <div class="p-5 border-b border-slate-200/70 dark:border-slate-800/70">
+              <h3 class="text-base font-semibold tracking-tight">Trend Over Time</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Placeholder series (dummy data)</p>
+            </div>
+            <div class="p-5">
+              <canvas id="lineChart" height="170"></canvas>
+            </div>
+          </div>
+
+          <!-- Footer Note -->
+          <div class="xl:col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+            <div class="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div class="text-sm">
+                <span class="font-semibold">Data Source:</span>
+                <span class="text-slate-600 dark:text-slate-300">U.S. Department of Health & Human Services (HHS) Hospital Capacity Dataset</span>
+              </div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">
+                Data date: <span id="lastRefreshed">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // -------------------------
+    // API Fetch
+    // -------------------------
+    const API_BASE = window.location.origin;
+
+    async function fetchMetrics(dateStr) {
+      try {
+        const response = await fetch(`${API_BASE}/metrics/compare?date=${dateStr}`);
+        const data = await response.json();
+        return data.rows.map(row => ({
+          region: row.region,
+          strain: row.strain_index,
+          delta: row.delta || 0
+        }));
+      } catch (error) {
+        console.error('API error:', error);
+        return [];
+      }
+    }
+
+    // Placeholder trend data (not tied to snapshot date, but could be)
+    const TREND_LABELS = ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7"];
+    const TREND_VALUES = [62, 66, 64, 70, 73, 71, 75];
+
+    // -------------------------
+    // Theme handling
+    // -------------------------
+    const root = document.documentElement;
+    const themeToggle = document.getElementById('themeToggle');
+
+    function setTheme(mode) {
+      if (mode === 'dark') root.classList.add('dark');
+      else root.classList.remove('dark');
+      localStorage.setItem('hst_theme', mode);
+      refreshCharts(); // update chart grid/ticks colors
+    }
+
+    function initTheme() {
+      const saved = localStorage.getItem('hst_theme');
+      if (saved === 'dark' || saved === 'light') {
+        setTheme(saved);
+        return;
+      }
+      // System preference fallback
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setTheme(prefersDark ? 'dark' : 'light');
+    }
+
+    themeToggle.addEventListener('click', () => {
+      const isDark = root.classList.contains('dark');
+      setTheme(isDark ? 'light' : 'dark');
+    });
+
+    // -------------------------
+    // Helpers
+    // -------------------------
+    function formatPercent(n) {
+      return `${Math.round(n)}%`;
+    }
+
+    function strainBadge(strain) {
+      if (strain > 80) return { label: "CRISIS", cls: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200" };
+      if (strain >= 70) return { label: "ELEVATED", cls: "bg-orange-100 text-orange-700 dark:bg-orange-900/35 dark:text-orange-200" };
+      return { label: "STABLE", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-200" };
+    }
+
+    function strainPill(strain) {
+      if (strain > 80) return "bg-rose-500/10 text-rose-700 dark:text-rose-200 border border-rose-500/20";
+      if (strain >= 70) return "bg-orange-500/10 text-orange-700 dark:text-orange-200 border border-orange-500/20";
+      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-200 border border-emerald-500/20";
+    }
+
+    function deltaCell(delta) {
+      const sign = delta > 0 ? "+" : "";
+      const cls = delta > 0
+        ? "text-rose-600 dark:text-rose-300"
+        : delta < 0
+          ? "text-emerald-600 dark:text-emerald-300"
+          : "text-slate-600 dark:text-slate-300";
+      return { text: `${sign}${delta.toFixed(1)}`, cls };
+    }
+
+    function nowStamp() {
+      const d = new Date();
+      return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+
+    // -------------------------
+    // UI render (KPIs + Table)
+    // -------------------------
+    const tableBody = document.getElementById('tableBody');
+    const kpiHighestState = document.getElementById('kpiHighestState');
+    const kpiHighestValue = document.getElementById('kpiHighestValue');
+    const kpiHighestBadge = document.getElementById('kpiHighestBadge');
+    const kpiAverage = document.getElementById('kpiAverage');
+    const avgProgress = document.getElementById('avgProgress');
+    const kpiCrisis = document.getElementById('kpiCrisis');
+    const lastRefreshed = document.getElementById('lastRefreshed');
+
+    async function renderDashboard(dateStr) {
+      const rows = await fetchMetrics(dateStr);
+      const sortedRows = rows.slice().sort((a, b) => b.strain - a.strain);
+
+      // KPIs
+      const highest = sortedRows[0] || { region: "—", strain: 0 };
+      const avg = sortedRows.length ? sortedRows.reduce((s, r) => s + r.strain, 0) / sortedRows.length : 0;
+      const crisisCount = sortedRows.filter(r => r.strain > 80).length;
+
+      kpiHighestState.textContent = highest.region;
+      kpiHighestValue.textContent = formatPercent(highest.strain);
+
+      const hb = strainBadge(highest.strain);
+      kpiHighestBadge.textContent = hb.label;
+      kpiHighestBadge.className = `px-2.5 py-1 rounded-full text-xs font-semibold ${hb.cls}`;
+
+      kpiAverage.textContent = avg.toFixed(1);
+      avgProgress.style.width = `${Math.max(0, Math.min(100, avg))}%`;
+
+      kpiCrisis.textContent = crisisCount.toString();
+
+      // Table
+      tableBody.innerHTML = "";
+      sortedRows.forEach((r) => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 dark:hover:bg-slate-800/40";
+
+        const tdRegion = document.createElement('td');
+        tdRegion.className = "px-5 py-3 font-medium";
+        tdRegion.textContent = r.region;
+
+        const tdStrain = document.createElement('td');
+        tdStrain.className = "px-5 py-3 text-right";
+        tdStrain.innerHTML = `
+          <span class="inline-flex items-center justify-end gap-2">
+            <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${strainPill(r.strain)}">${formatPercent(r.strain)}</span>
+          </span>
+        `;
+
+        const tdDelta = document.createElement('td');
+        const d = deltaCell(r.delta);
+        tdDelta.className = `px-5 py-3 text-right font-semibold ${d.cls}`;
+        tdDelta.textContent = d.text;
+
+        tr.appendChild(tdRegion);
+        tr.appendChild(tdStrain);
+        tr.appendChild(tdDelta);
+        tableBody.appendChild(tr);
+      });
+
+      // Charts
+      updateCharts(sortedRows);
+
+      // Show the selected date instead of current time
+      if (dateStr) {
+        const date = new Date(dateStr);
+        lastRefreshed.textContent = date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      } else {
+        lastRefreshed.textContent = "—";
+      }
+    }
+
+    // -------------------------
+    // Charts
+    // -------------------------
+    let barChartInstance = null;
+    let lineChartInstance = null;
+
+    function chartThemeColors() {
+      const isDark = root.classList.contains('dark');
+      return {
+        grid: isDark ? "rgba(148,163,184,0.14)" : "rgba(148,163,184,0.28)",
+        ticks: isDark ? "rgba(226,232,240,0.85)" : "rgba(15,23,42,0.75)",
+        border: isDark ? "rgba(148,163,184,0.22)" : "rgba(148,163,184,0.35)"
+      };
+    }
+
+    function buildBarColors(strains) {
+      // Color-coded strain levels
+      return strains.map(s => {
+        if (s > 80) return "rgba(244, 63, 94, 0.75)";   // rose
+        if (s >= 70) return "rgba(249, 115, 22, 0.75)"; // orange
+        return "rgba(16, 185, 129, 0.75)";              // emerald
+      });
+    }
+
+    function updateCharts(rows) {
+      const labels = rows.map(r => r.region);
+      const values = rows.map(r => r.strain);
+
+      const t = chartThemeColors();
+
+      // Bar chart
+      const barCtx = document.getElementById('barChart');
+      const barData = {
+        labels,
+        datasets: [{
+          label: "Strain Index",
+          data: values,
+          backgroundColor: buildBarColors(values),
+          borderColor: t.border,
+          borderWidth: 1,
+          borderRadius: 10
+        }]
+      };
+
+      const barOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` ${ctx.parsed.y}%`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: t.ticks, maxRotation: 0, autoSkip: true }
+          },
+          y: {
+            beginAtZero: true,
+            max: 100,
+            grid: { color: t.grid },
+            ticks: { color: t.ticks, callback: (v) => `${v}%` }
+          }
+        }
+      };
+
+      if (barChartInstance) {
+        barChartInstance.data = barData;
+        barChartInstance.options = barOptions;
+        barChartInstance.update();
+      } else {
+        barChartInstance = new Chart(barCtx, { type: 'bar', data: barData, options: barOptions });
+      }
+
+      // Line chart (placeholder)
+      const lineCtx = document.getElementById('lineChart');
+      const lineData = {
+        labels: TREND_LABELS,
+        datasets: [{
+          label: "Avg Strain (placeholder)",
+          data: TREND_VALUES,
+          tension: 0.35,
+          borderColor: "rgba(59, 130, 246, 0.9)",
+          backgroundColor: "rgba(59, 130, 246, 0.18)",
+          fill: true,
+          pointRadius: 3,
+          pointHoverRadius: 5
+        }]
+      };
+
+      const lineOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` ${ctx.parsed.y}%`
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: t.ticks } },
+          y: {
+            beginAtZero: true,
+            max: 100,
+            grid: { color: t.grid },
+            ticks: { color: t.ticks, callback: (v) => `${v}%` }
+          }
+        }
+      };
+
+      if (lineChartInstance) {
+        lineChartInstance.data = lineData;
+        lineChartInstance.options = lineOptions;
+        lineChartInstance.update();
+      } else {
+        lineChartInstance = new Chart(lineCtx, { type: 'line', data: lineData, options: lineOptions });
+      }
+    }
+
+    function refreshCharts() {
+      // Re-apply theme colors without changing data
+      if (!barChartInstance && !lineChartInstance) return;
+      const t = chartThemeColors();
+
+      if (barChartInstance) {
+        barChartInstance.options.scales.x.ticks.color = t.ticks;
+        barChartInstance.options.scales.y.ticks.color = t.ticks;
+        barChartInstance.options.scales.y.grid.color = t.grid;
+        barChartInstance.data.datasets[0].borderColor = t.border;
+        barChartInstance.update();
+      }
+
+      if (lineChartInstance) {
+        lineChartInstance.options.scales.x.ticks.color = t.ticks;
+        lineChartInstance.options.scales.y.ticks.color = t.ticks;
+        lineChartInstance.options.scales.y.grid.color = t.grid;
+        lineChartInstance.update();
+      }
+    }
+
+    // -------------------------
+    // CSV Export
+    // -------------------------
+    function toCSV(rows) {
+      const header = ["Region", "Strain Index", "Delta Strain"];
+      const lines = [header.join(",")];
+      rows.forEach(r => {
+        const safeRegion = `"${String(r.region).replace(/"/g, '""')}"`;
+        lines.push([safeRegion, r.strain, r.delta].join(","));
+      });
+      return lines.join("\n");
+    }
+
+    async function downloadCSV(dateStr) {
+      const rows = await fetchMetrics(dateStr);
+      const sortedRows = rows.slice().sort((a, b) => b.strain - a.strain);
+      const csv = toCSV(sortedRows);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hospital_strain_${dateStr || "snapshot"}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      URL.revokeObjectURL(url);
+    }
+
+    // -------------------------
+    // Init
+    // -------------------------
+    const datePicker = document.getElementById('datePicker');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    function setDefaultDate() {
+      datePicker.value = '2021-06-12';
+    }
+
+    datePicker.addEventListener('change', async () => await renderDashboard(datePicker.value));
+    downloadBtn.addEventListener('click', async () => await downloadCSV(datePicker.value));
+
+    (async () => {
+      initTheme();
+      setDefaultDate();
+      await renderDashboard(datePicker.value);
+    })();
+  </script>
+</body>
+</html>

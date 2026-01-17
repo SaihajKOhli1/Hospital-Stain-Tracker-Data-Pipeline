@@ -1,195 +1,84 @@
-# Strain Tracker
+# 🏥 Hospital Strain Tracker
 
-A FastAPI-based backend for tracking hospital strain data with PostgreSQL database.
+Real-time hospital capacity monitoring system with automated ETL pipeline and operational dashboard.
+
+## Architecture
+
+**Cloud Infrastructure (AWS)**
+- S3: Raw data storage with versioning
+- Lambda: Containerized ETL (Docker/ECR)
+- RDS Postgres: Metrics database
+- VPC: Secure networking with endpoint configuration
+
+**Backend (Python/FastAPI)**
+- RESTful API for metrics querying
+- SQLAlchemy ORM with PostgreSQL
+- Data validation & quality checks
+- Pipeline observability (run tracking, reject logging)
+
+**Frontend (HTML/Tailwind/Chart.js)**
+- Professional dark-mode dashboard
+- Real-time strain index calculations
+- Historical trend analysis
+- CSV export functionality
+
+## Data Pipeline
+
+CSV Upload → S3 Trigger → Lambda ETL → Validation → RDS → API → Dashboard
+
+**ETL Features:**
+- Automatic data ingestion from HHS hospital capacity reports
+- Row-level validation with reject handling
+- Idempotent upserts (prevents duplicates)
+- Computed metrics: bed occupancy %, ICU utilization %, strain index
+
+**Strain Index Formula:**
+```
+strain_index = min(100, max(0, 0.4 × bed_score + 0.6 × icu_score))
+
+where:
+- bed_score = bed_occupancy_percentage × 100
+- icu_score = icu_occupancy_percentage × 100 (if available, else bed_score)
+```
+
+The formula weights ICU occupancy at 60% and bed occupancy at 40%, reflecting the critical nature of ICU capacity. The final index is clamped between 0-100 for standardized reporting.
 
 ## Tech Stack
 
-- Python 3.11
-- FastAPI + Uvicorn
-- SQLAlchemy 2.x
-- PostgreSQL 16 (via Docker)
-- Pydantic for settings and validation
+- **Cloud:** AWS (S3, Lambda, RDS, ECR, VPC)
+- **Backend:** Python, FastAPI, SQLAlchemy, Pandas
+- **Database:** PostgreSQL
+- **Container:** Docker
+- **Frontend:** HTML5, Tailwind CSS, Chart.js
+- **Data Source:** U.S. HHS Hospital Capacity Dataset
 
-## Quick Start
+## Key Features
 
-1. **Copy environment variables:**
-   ```bash
-   cp .env.example .env
-   ```
+✅ Automated serverless ETL pipeline
+✅ 9,978+ rows of real hospital capacity data
+✅ Color-coded strain indicators (crisis threshold: >80%)
+✅ Day-over-day delta tracking
+✅ Professional operational dashboard
+✅ Data quality monitoring & observability
 
-2. **Start services:**
-   ```bash
-   docker compose up --build
-   ```
+## Local Development
 
-3. **Test the API:**
-   ```bash
-   # Health check
-   curl http://localhost:8000/health
-   
-   # Get pipeline runs
-   curl http://localhost:8000/runs
-   ```
-
-   Or open in browser:
-   - http://localhost:8000/health
-   - http://localhost:8000/runs
-
-## API Endpoints
-
-- `GET /health` - Health check endpoint that verifies database connectivity
-- `GET /runs` - Returns the last 20 pipeline runs ordered by started_at descending
-- `GET /capacity/latest` - Returns the latest hospital capacity data by date
-
-## Project Structure
-
-```
-strain-tracker/
-├── backend/
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py          # FastAPI application
-│   │   ├── db.py            # Database connection and session management
-│   │   ├── models.py        # SQLAlchemy models
-│   │   └── settings.py      # Pydantic settings
-│   ├── requirements.txt
-│   └── Dockerfile
-├── docker-compose.yml
-├── .env.example
-├── .gitignore
-└── README.md
-```
-
-## Database
-
-The application uses PostgreSQL 16 running in Docker. The database connection can be configured via:
-- `DATABASE_URL` environment variable (preferred), or
-- Individual components: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
-
-Tables are automatically created on application startup via `init_db()`.
-
-## Run ETL Locally
-
-1. **Start services:**
-   ```bash
-   docker compose up
-   ```
-
-2. **Run the ETL script:**
-   ```bash
-   docker compose exec backend python -m app.etl.ingest_capacity --input data/raw/hospital_capacity_raw.csv --source hhs_capacity
-   ```
-
-3. **Verify the results:**
-   - Check pipeline runs: http://localhost:8000/runs
-   - Check latest capacity data: http://localhost:8000/capacity/latest
-
-The ETL script will:
-- Create a pipeline run record
-- Read and validate the CSV file
-- Reject invalid rows (written to `data/rejects/capacity_rejects_<run_id>.csv`)
-- Upsert regions and capacity data
-- Update the pipeline run with success/failure status
-
-## AWS Lambda Deployment
-
-The ETL is Lambda-container ready for S3-triggered processing.
-
-### Build Lambda Container Image
-
-Build the Lambda container image locally:
-
+Backend:
 ```bash
-docker build -f aws/Dockerfile.lambda -t strain-tracker-lambda .
+cd backend
+DATABASE_URL="postgresql://..." uvicorn app.main:app --reload
 ```
 
-This creates a container image with:
-- AWS Lambda Python 3.11 base image
-- All backend dependencies (pandas, pyarrow, boto3, etc.)
-- ETL code and Lambda handler
+Dashboard:
+```bash
+open frontend/public/dashboard.html
+```
 
-### Lambda Handler
+## Deployment
 
-The Lambda handler (`aws/lambda_handler.py`) processes S3 Put events:
-- Parses S3 event to extract bucket and key
-- Downloads CSV from S3 to `/tmp`
-- Runs ETL processing
-- Returns summary with run_id, rows_in, rows_loaded, rows_rejected
+Deployed on Railway with environment variables for database connection.
 
-### Deployment
+## Data Source
 
-To deploy:
-1. Push the container image to Amazon ECR
-2. Create Lambda function using the container image
-3. Configure S3 bucket event to trigger Lambda on Put events
-4. Set environment variables (e.g., `SOURCE_NAME`, database connection)
-
-See `aws/events/s3_put_example.json` for example S3 event format.
-
-## Frontend
-
-The frontend is a React + TypeScript application built with Vite.
-
-1. **Navigate to frontend directory:**
-   ```bash
-   cd frontend
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-3. **Start the development server:**
-   ```bash
-   npm run dev
-   ```
-
-4. **Open in browser:**
-   - http://localhost:5173
-
-The frontend displays hospital strain metrics with:
-- A table showing region, bed occupancy %, ICU occupancy %, and strain index
-- A bar chart visualizing strain index by region
-- Date filtering to view metrics for specific dates
-
-## Development
-
-The backend service runs with `--reload` flag for hot-reloading during development. Code changes in `backend/app/` will automatically restart the server.
-
-
-## Deployment (Railway)
-
-Deploy both backend and frontend services to Railway.
-
-### Backend Service
-
-1. **Create a new service** in Railway dashboard
-2. **Connect your repository** and configure:
-   - **Root Directory:** `backend`
-   - **Start Command:** `bash -lc "uvicorn app.main:app --host 0.0.0.0 --port $PORT"`
-   - **Generate Domain** (Railway will provide a URL)
-3. **Set environment variables:**
-   - `DATABASE_URL` - PostgreSQL connection string
-   - `CORS_ORIGINS` - (Optional) Comma-separated list of allowed origins
-4. **Test the deployment:**
-   - Health check: `https://<backend-domain>/health`
-   - API docs: `https://<backend-domain>/docs`
-
-### Frontend Service
-
-1. **Create a new service** in Railway dashboard
-2. **Connect your repository** and configure:
-   - **Root Directory:** `frontend`
-   - **Build Command:** `npm ci && npm run build`
-   - **Start Command:** `bash -lc "npm run preview -- --host 0.0.0.0 --port $PORT"`
-   - **Generate Domain** (Railway will provide a URL)
-3. **Add environment variable:**
-   - `VITE_API_BASE_URL` - Set to `https://<backend-domain>` (no trailing slash)
-4. **Redeploy** the frontend service to apply the environment variable
-
-### Testing Deployment
-
-- Backend health: `https://<backend-domain>/health`
-- Backend docs: `https://<backend-domain>/docs`
-- Frontend: `https://<frontend-domain>`
+U.S. Department of Health & Human Services (HHS)  
+COVID-19 Reported Patient Impact and Hospital Capacity by State

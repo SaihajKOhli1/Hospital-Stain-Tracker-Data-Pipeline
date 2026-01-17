@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import text, func
 from typing import List, Optional
 from datetime import date as date_type, timedelta
+import os
 from .db import get_db, init_db
 from .models import PipelineRun, Region, HospitalCapacityDaily, MetricsDaily
 from .settings import settings
@@ -13,9 +15,7 @@ app = FastAPI(title="Strain Tracker API")
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://frontend-production-831c.up.railway.app"
-    ],
+    allow_origins=["*"],  # Allow all origins for local development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,16 +32,6 @@ async def startup_event():
     print("Base URL: http://localhost:8000")
     print("Docs: http://localhost:8000/docs")
     print("="*50 + "\n")
-
-
-@app.get("/")
-async def root():
-    """Root endpoint - service status."""
-    return {
-        "status": "ok",
-        "service": "hospital-strain-tracker",
-        "docs": "/docs"
-    }
 
 
 @app.get("/health")
@@ -314,4 +304,10 @@ async def get_coverage(
         "best_rows": best_rows,
         "dates": dates_list
     }
+
+
+# Mount static files (serve dashboard) - must be last after all route definitions
+static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
+if os.path.exists(static_dir):
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
