@@ -1,0 +1,36 @@
+/* Smooth theme transitions */
+html, body, .theme-animate * {
+  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+}
+
+/* Subtle grid background */
+.grid-bg {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.18) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+.dark .grid-bg {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.10) 1px, transparent 0);
+}
+
+/* Nice focus ring for inputs/buttons */
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
+  border-color: rgba(59, 130, 246, 0.75);
+}
+
+/* Table sticky header */
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(10px);
+}
+
+/* Scrollbar polish */
+.scrollbar::-webkit-scrollbar { height: 10px; width: 10px; }
+.scrollbar::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.55); border-radius: 999px; }
+.dark .scrollbar::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.28); }
+.scrollbar::-webkit-scrollbar-track { background: transparent; }

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import text, func
 from typing import List, Optional
@@ -29,10 +29,20 @@ print("[DIAG] BASE_DIR:", BASE_DIR)
 print("[DIAG] STATIC_DIR exists?", STATIC_DIR.exists(), "->", STATIC_DIR)
 print("[DIAG] INDEX_FILE exists?", INDEX_FILE.exists(), "->", INDEX_FILE)
 
+# CORS origins configuration
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN")
+origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://hospital-strain-tracker.vercel.app"
+]
+if FRONTEND_ORIGIN:
+    origins.append(FRONTEND_ORIGIN)
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for local development
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -72,6 +82,12 @@ async def whoami():
         "static_exists": STATIC_DIR.exists(),
         "index_exists": INDEX_FILE.exists()
     }
+
+
+@app.get("/__build")
+async def build_id():
+    """Return build ID as plain text."""
+    return PlainTextResponse(BUILD_ID)
 
 
 @app.get("/runs")
@@ -340,12 +356,10 @@ async def get_coverage(
     }
 
 
-# Root route serves dashboard (API routes take precedence, so /health, /metrics/* still work)
+# TEMPORARY root route for Railway verification
 @app.get("/", include_in_schema=False)
-async def dashboard():
-    """Serve dashboard HTML at root path."""
-    print("SERVING_DASHBOARD_HTML", INDEX_FILE)
-    return FileResponse(str(INDEX_FILE))
+async def root_proof():
+    return HTMLResponse("<h1>DASHBOARD_ROUTE_HIT</h1>", status_code=200)
 
 
 # Mount static files for any assets referenced by index.html
