@@ -9,8 +9,14 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  server: {
+    host: "0.0.0.0",
+    port: 3000,
+    allowedHosts: [".up.railway.app"],
+  },
   preview: {
-    host: true,
-    allowedHosts: ["frontend-production-831c.up.railway.app"],
+    host: "0.0.0.0",
+    port: 3000,
+    allowedHosts: [".up.railway.app"],
   },
 });
