@@ -320,28 +320,7 @@
     // -------------------------
     // API Configuration
     // -------------------------
-    function getApiBase() {
-      // 1) Check URL parameter ?api=...
-      const urlParams = new URLSearchParams(window.location.search);
-      const apiParam = urlParams.get('api');
-      if (apiParam) {
-        try {
-          return decodeURIComponent(apiParam);
-        } catch (e) {
-          console.warn('Failed to decode API URL parameter:', e);
-        }
-      }
-      
-      // 2) Check window.__API_BASE__
-      if (typeof window.__API_BASE__ !== 'undefined' && window.__API_BASE__) {
-        return window.__API_BASE__;
-      }
-      
-      // 3) Fallback to dev default
-      return "http://localhost:8000";
-    }
-    
-    const API_BASE = getApiBase();
+    const API_BASE = "https://REPLACE_ME_BACKEND_DOMAIN";
 
     // -------------------------
     // API Fetch Logic
