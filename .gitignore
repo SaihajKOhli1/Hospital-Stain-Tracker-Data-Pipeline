@@ -23,3 +23,7 @@ build/
 # Local scratch
 tmp/
 rejects/
+
+# Node
+frontend/node_modules/
+node_modules/
