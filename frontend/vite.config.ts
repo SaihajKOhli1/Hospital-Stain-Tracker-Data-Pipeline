@@ -10,6 +10,11 @@ export default defineConfig({
     },
   },
   preview: {
-    allowedHosts: "all",
+    host: true,
+    port: 8080,
+    allowedHosts: [
+      "frontend-production-831c.up.railway.app",
+      ".up.railway.app"
+    ],
   },
 });
