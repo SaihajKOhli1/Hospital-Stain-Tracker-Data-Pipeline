@@ -12,6 +12,9 @@ from .db import get_db, init_db
 from .models import PipelineRun, Region, HospitalCapacityDaily, MetricsDaily
 from .settings import settings
 
+# Build ID for Railway verification
+BUILD_ID = "railway-proof-2026-01-17-0225"
+
 # Absolute path resolution for static files (works in containers)
 BASE_DIR = Path(__file__).resolve().parent.parent  # backend/app -> backend
 STATIC_DIR = BASE_DIR / "static"
@@ -51,7 +54,24 @@ async def startup_event():
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {"status": "ok", "service": "hospital-strain-tracker", "docs": "/docs"}
+    return {
+        "status": "ok",
+        "service": "hospital-strain-tracker",
+        "docs": "/docs",
+        "build_id": BUILD_ID
+    }
+
+
+@app.get("/__whoami")
+async def whoami():
+    """Debug endpoint to verify Railway deployment and paths."""
+    return {
+        "build_id": BUILD_ID,
+        "cwd": os.getcwd(),
+        "main_file": str(Path(__file__).resolve()),
+        "static_exists": STATIC_DIR.exists(),
+        "index_exists": INDEX_FILE.exists()
+    }
 
 
 @app.get("/runs")
