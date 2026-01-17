@@ -22,21 +22,16 @@ INDEX_FILE = STATIC_DIR / "index.html"
 
 app = FastAPI(title="Strain Tracker API")
 
-# Diagnostic prints for Railway troubleshooting
-print("[DIAG] cwd:", os.getcwd())
-print("[DIAG] file:", Path(__file__).resolve())
-print("[DIAG] BASE_DIR:", BASE_DIR)
-print("[DIAG] STATIC_DIR exists?", STATIC_DIR.exists(), "->", STATIC_DIR)
-print("[DIAG] INDEX_FILE exists?", INDEX_FILE.exists(), "->", INDEX_FILE)
-
 # CORS origins configuration
-FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN")
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "").strip()
 origins = [
     "http://localhost:3000",
     "http://localhost:5173",
-    "https://hospital-strain-tracker.vercel.app"
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "https://hospital-stain-tracker-data-pipelin.vercel.app",
 ]
-if FRONTEND_ORIGIN:
+if FRONTEND_ORIGIN and FRONTEND_ORIGIN not in origins:
     origins.append(FRONTEND_ORIGIN)
 
 # Add CORS middleware
@@ -47,6 +42,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Diagnostic prints for Railway troubleshooting
+print("[DIAG] cwd:", os.getcwd())
+print("[DIAG] file:", Path(__file__).resolve())
+print("[DIAG] BASE_DIR:", BASE_DIR)
+print("[DIAG] STATIC_DIR exists?", STATIC_DIR.exists(), "->", STATIC_DIR)
+print("[DIAG] INDEX_FILE exists?", INDEX_FILE.exists(), "->", INDEX_FILE)
 
 
 @app.on_event("startup")
@@ -88,6 +90,15 @@ async def whoami():
 async def build_id():
     """Return build ID as plain text."""
     return PlainTextResponse(BUILD_ID)
+
+
+@app.get("/__cors")
+async def cors_debug():
+    """Debug endpoint to verify CORS origins configuration."""
+    return {
+        "origins": origins,
+        "env_frontend_origin": FRONTEND_ORIGIN
+    }
 
 
 @app.get("/runs")
