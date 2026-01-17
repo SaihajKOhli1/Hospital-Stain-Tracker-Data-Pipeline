@@ -17,13 +17,13 @@ BUILD_ID = "railway-switch-2026-01-17-0907"
 app = FastAPI(title="Strain Tracker API")
 
 # CORS configuration - must be right after app creation
-allowed_origins = [
-    "https://hospital-stain-tracker-data-pipeline-1duyntawl.vercel.app"
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -102,12 +102,9 @@ def build_stamp():
 
 
 @app.get("/cors-check")
-async def cors_check(request: Request):
+def cors_check(request: Request):
     """Debug endpoint to verify CORS configuration."""
-    return {
-        "allowed_origins": allowed_origins,
-        "origin_seen": request.headers.get("origin")
-    }
+    return {"origin": request.headers.get("origin")}
 
 
 @app.get("/runs")
