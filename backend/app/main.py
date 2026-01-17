@@ -1,18 +1,12 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import text, func
 from typing import List, Optional
 from datetime import date as date_type, timedelta
-from pathlib import Path
 from .db import get_db, init_db
 from .models import PipelineRun, Region, HospitalCapacityDaily, MetricsDaily
 from .settings import settings
-
-# Compute dashboard path relative to backend/app/main.py
-BASE_DIR = Path(__file__).resolve().parent  # backend/app
-DASHBOARD_PATH = (BASE_DIR / "../../frontend/dashboard.html").resolve()
 
 app = FastAPI(title="Strain Tracker API")
 
@@ -40,14 +34,22 @@ async def startup_event():
 
 @app.get("/")
 async def root():
-    """Serve the dashboard HTML at root path."""
-    return FileResponse(DASHBOARD_PATH, media_type="text/html")
+    """Root endpoint - service status."""
+    return {
+        "status": "ok",
+        "service": "hospital-strain-tracker",
+        "docs": "/docs"
+    }
 
 
 @app.get("/health")
-async def health():
-    """Health check endpoint."""
-    return {"status": "ok", "service": "hospital-strain-tracker", "docs": "/docs"}
+async def health_check(db: Session = Depends(get_db)):
+    """Health check endpoint that verifies database connectivity."""
+    try:
+        db.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database connection failed: {str(e)}")
 
 
 @app.get("/runs")
