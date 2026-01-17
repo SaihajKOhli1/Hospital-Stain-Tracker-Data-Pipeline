@@ -42,13 +42,9 @@ async def root():
 
 
 @app.get("/health")
-async def health_check(db: Session = Depends(get_db)):
-    """Health check endpoint that verifies database connectivity."""
-    try:
-        db.execute(text("SELECT 1"))
-        return {"status": "ok", "db": "ok"}
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Database connection failed: {str(e)}")
+async def health():
+    """Health check endpoint."""
+    return {"status": "ok", "service": "hospital-strain-tracker", "docs": "/docs"}
 
 
 @app.get("/runs")
