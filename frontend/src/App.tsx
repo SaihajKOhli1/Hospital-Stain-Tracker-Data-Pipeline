@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card"
+import { API_BASE } from "./lib/apiBase"
 
 interface MetricsRow {
   region: string
@@ -28,8 +29,8 @@ function App() {
     
     try {
       const url = selectedDate 
-        ? `http://localhost:8000/metrics/compare?date=${selectedDate}`
-        : 'http://localhost:8000/metrics/latest'
+        ? `${API_BASE}/metrics/compare?date=${selectedDate}`
+        : `${API_BASE}/metrics/latest`
       
       const response = await fetch(url)
       
